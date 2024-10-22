@@ -34,10 +34,10 @@ def startClient(name, port):
 
     while True:
         command = input("Enter command: ").split()
-        filename = command[1]
+
 
         if command[0] == "put":
-
+            filename = command[1]
             clientSocket.sendall(b"put")
             clientSocket.recv(1024)
             clientSocket.sendall(filename.encode())
@@ -50,6 +50,7 @@ def startClient(name, port):
             print("Server response: File uploaded.")
 
         elif command[0] == "get":
+            filename = command[1]
             clientSocket.sendall(b"get")
             clientSocket.recv(1024)
             clientSocket.sendall(filename.encode())
@@ -59,6 +60,7 @@ def startClient(name, port):
             print(f"File {filename} downloaded.")
         
         elif command[0] == "keyword":
+            filename = command[1]
             keyword = command[1]
             filename = command[2]
 
@@ -68,6 +70,11 @@ def startClient(name, port):
             clientSocket.sendall(f"{keyword} {filename}".encode())
             response = clientSocket.recv(1024)
             print(response.decode())
+        
+        elif command[0] == "quit":
+            clientSocket.sendall(b"quit")
+            response = clientSocket.recv(1024).decode()
+            break
         
     clientSocket.close()
 
