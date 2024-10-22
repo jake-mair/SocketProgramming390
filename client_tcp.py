@@ -1,5 +1,5 @@
 from socket import *
-
+import sys
 
 def sendFile(filename, clientSocket):
     with open(filename, 'rb') as file:
@@ -10,8 +10,18 @@ def sendFile(filename, clientSocket):
             clientSocket.sendall(data)
 
 
+
 def recFile(filename, clientSocket):
-    with open(filename, 'wb') as file:
+
+    # Part to rename the file if it already exists
+    parts = filename.rsplit('.', 1)
+    name = parts[0]
+    ext = parts[1]
+    new_filename = f"{name}_1.{ext}"
+
+
+
+    with open(new_filename, 'wb') as file:
         while True:
             data = clientSocket.recv(1024)
             if not data:
@@ -22,26 +32,51 @@ def startClient(name, port):
     clientSocket = socket(AF_INET, SOCK_STREAM)
     clientSocket.connect((serverName,serverPort))
 
-    # Step 1: Send the file name
-    filename = input("Enter the file to anonymize: ")
-    clientSocket.sendall(filename.encode()) # Ensures data is sent
+    while True:
+        command = input("Enter command: ").split()
+        filename = command[1]
 
-    # Step 2: Send the file data
-    sendFile(filename, clientSocket)
-    print("File sent to server.")
+        if command[0] == "put":
 
-    # Step 3: Send the keyworkd to anonymize
-    keyword = input("Enter the keyworkd to anonymize: ")
-    clientSocket.sendall(keyword.encode())
+            clientSocket.sendall(b"put")
+            clientSocket.recv(1024)
+            clientSocket.sendall(filename.encode())
+            clientSocket.recv(1024)
 
-    # Step 4: Receive the anonymized file
-    anonymized_filename = filename.split('.')[0] + '_anon.txt'
-    recFile(anonymized_filename, clientSocket)
-    print(f"Anonymized file received: {anonymized_filename}")
+            print("Sending file.")
+            sendFile(filename, clientSocket)
+            print("Awaiting server response.")
+            clientSocket.recv(1024)
+            print("Server response: File uploaded.")
 
+        elif command[0] == "get":
+            clientSocket.sendall(b"get")
+            clientSocket.recv(1024)
+            clientSocket.sendall(filename.encode())
+            clientSocket.recv(1024)
+            recFile(filename, clientSocket)
+            clientSocket.recv(1024)
+            print(f"File {filename} downloaded.")
+        
+        elif command[0] == "keyword":
+            keyword = command[1]
+            filename = command[2]
+
+            clientSocket.sendall(b"keyword")
+            clientSocket.recv(1024)
+
+            clientSocket.sendall(f"{keyword} {filename}".encode())
+            response = clientSocket.recv(1024)
+            print(response.decode())
+        
     clientSocket.close()
 
 if __name__ == "__main__":
-    serverName = 'localhost'
-    serverPort = 12000
+    serverName = 'localhost' # Default ip
+    serverPort = 12000 # Default port
+
+    if len(sys.argv) == 3:
+        serverName = str(sys.argv[1])
+        serverPort = int(sys.argv[2])
+        
     startClient(serverName, serverPort)
