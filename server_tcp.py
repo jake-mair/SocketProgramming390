@@ -69,6 +69,10 @@ def startServer(port):
             getTask(connectionSocket)
         elif command == "keyword":
             keywordTask(connectionSocket)
+        elif command == "quit":
+            connectionSocket.sendall(b"Server response: Goodbye!")
+            connectionSocket.close()
+            break
         
         connectionSocket.close()
     
