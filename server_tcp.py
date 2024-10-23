@@ -71,4 +71,39 @@ def keywordTask(conn):
 def startServer(port):
     serverSocket = socket(AF_INET, SOCK_STREAM)  # Create a TCP/IP socket
     serverSocket.bind(('', port))  # Bind the socket to the specified port
-    serverSocket.listen(1)  # Listen for inc
+    serverSocket.listen(1)  # Listen for incoming connections (1 connection at a time)
+    print(f'The server is ready to receive on port {port}')
+
+    # Main server loop: Accept and process client connections
+    while True:
+        connectionSocket, addr = serverSocket.accept()  # Accept a connection from a client
+        print(f"Connection established with {addr}")  # Log the client's address
+
+        # Receive the command from the client
+        command = connectionSocket.recv(1024).decode()
+        connectionSocket.sendall(b"File received.")  # Acknowledge that the command was received
+
+        # Check the command and call the appropriate task function
+        if command == "put":
+            putTask(connectionSocket)  # Handle file upload
+        elif command == "get":
+            getTask(connectionSocket)  # Handle file download
+        elif command == "keyword":
+            keywordTask(connectionSocket)  # Handle file anonymization
+        elif command == "quit":
+            connectionSocket.sendall(b"Server response: Goodbye!")  # Send a goodbye message
+            connectionSocket.close()  # Close the connection
+            break  # Exit the server loop
+
+        # Close the connection after handling the command
+        connectionSocket.close()
+
+# Main block to start the server with a specified port
+if __name__ == "__main__":
+    port = 12000  # Default port for the program
+
+    # If a port number is provided as a command-line argument, use that port
+    if len(sys.argv) == 2:
+        port = int(sys.argv[1])
+
+    startServer(port)
