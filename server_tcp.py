@@ -1,90 +1,74 @@
 from socket import *
 import sys
 
-
-
+# Function to handle the 'put' task, which uploads a file from the client to the server
 def putTask(conn):
+    # Receive the filename from the client
     filename = conn.recv(1024).decode()
-    conn.sendall(b"Filename received.")
+    conn.sendall(b"Filename received.")  # Acknowledge filename receipt
 
-    # Part to rename the file if it already exists
-    parts = filename.rsplit('.', 1)
+    # Part to rename the file if it already exists by appending '_1' to the filename
+    parts = filename.rsplit('.', 1)  # Split the filename to separate name and extension
     name = parts[0]
     ext = parts[1]
-    new_filename = f"{name}_1.{ext}"
+    new_filename = f"{name}_1.{ext}"  # Add '_1' to the filename to avoid overwriting
 
+    # Open the new file in write-binary mode and start writing data received from the client
     with open(new_filename, 'wb') as file:
         while True:
-            data = conn.recv(1024)
-            if not data:
+            data = conn.recv(1024)  # Receive data in chunks of 1024 bytes
+            if not data:  # If no more data is received, stop the loop
                 break
-            file.write(data)
+            file.write(data)  # Write the received data to the new file
     
+    # Inform the client that the file has been successfully uploaded
     conn.sendall(b"Server response: File uploaded.")
 
+# Function to handle the 'get' task, which sends a file from the server to the client
 def getTask(conn):
+    # Receive the filename from the client
     filename = conn.recv(1024).decode()
-    conn.sendall(b"Filename received.")
+    conn.sendall(b"Filename received.")  # Acknowledge filename receipt
+
+    # Open the requested file in read-binary mode and start sending the data to the client
     with open(filename, 'rb') as file:
         while True:
-            data = file.read(1024)
-            if not data:
+            data = file.read(1024)  # Read file data in chunks of 1024 bytes
+            if not data:  # If the end of the file is reached, stop the loop
                 break
-            conn.sendall(data)
+            conn.sendall(data)  # Send the file data to the client
 
+# Function to handle the 'keyword' task, which anonymizes a file based on a given keyword
 def keywordTask(conn):
-    conn.sendall(b"Keyword command received.")
-    key_and_file = conn.recv(1024).decode().split()
-    keyword, filename = key_and_file[0], key_and_file[1]
-    print(f"{keyword}, {filename}")
+    conn.sendall(b"Keyword command received.")  # Acknowledge that the command was received
 
+    # Receive the keyword and filename from the client
+    key_and_file = conn.recv(1024).decode().split()  # Split the keyword and filename
+    keyword, filename = key_and_file[0], key_and_file[1]
+    print(f"{keyword}, {filename}")  # Log the keyword and filename for debugging
+
+    # Split the filename into name and extension to create a new anonymized filename
     parts = filename.rsplit('.', 1)
     name = parts[0]
     ext = parts[1]
-    anonymized_filename = f"{name}_anon.{ext}"
+    anonymized_filename = f"{name}_anon.{ext}"  # Create a new filename for the anonymized file
+
+    # Read the content of the original file
     with open(filename, 'r') as file:
         content = file.read()
-    
+
+    # Replace occurrences of the keyword with X's in the file content
     anonymized_content = content.replace(keyword, 'X' * len(keyword))
 
+    # Write the anonymized content to a new file
     with open(anonymized_filename, 'w') as anon_file:
         anon_file.write(anonymized_content)
-    
+
+    # Inform the client that the file has been anonymized and provide the new filename
     conn.sendall(f"Server response: File {filename} anonymized. Output file is {anonymized_filename}".encode())
 
+# Function to start the server and listen for incoming client connections and commands
 def startServer(port):
-    serverSocket = socket(AF_INET,SOCK_STREAM)
-    serverSocket.bind(('',port))
-    serverSocket.listen(1)
-    print(f'The server is ready to receive on port {port}')
-
-    while True:
-        connectionSocket, addr = serverSocket.accept()
-        print(f"Connection established with {addr}")
-        command = connectionSocket.recv(1024).decode()
-        connectionSocket.sendall(b"File received.")
-        if command == "put":
-            putTask(connectionSocket)
-        elif command == "get":
-            getTask(connectionSocket)
-        elif command == "keyword":
-            keywordTask(connectionSocket)
-        elif command == "quit":
-            connectionSocket.sendall(b"Server response: Goodbye!")
-            connectionSocket.close()
-            break
-        
-        connectionSocket.close()
-    
-
-    
-
-
-
-if __name__ == "__main__":
-    
-    port = 12000 # Default port for program
-
-    if len(sys.argv) == 2:
-        port = int(sys.argv[1])
-    startServer(port)
+    serverSocket = socket(AF_INET, SOCK_STREAM)  # Create a TCP/IP socket
+    serverSocket.bind(('', port))  # Bind the socket to the specified port
+    serverSocket.listen(1)  # Listen for inc
