@@ -17,12 +17,14 @@ def putTask(conn):
     with open(new_filename, 'wb') as file:
         while True:
             data = conn.recv(1024)  # Receive data in chunks of 1024 bytes
+            print([data])
             if not data:  # If no more data is received, stop the loop
+                print("This hits")
                 break
             file.write(data)  # Write the received data to the new file
-    
     # Inform the client that the file has been successfully uploaded
     conn.sendall(b"Server response: File uploaded.")
+
 
 # Function to handle the 'get' task, which sends a file from the server to the client
 def getTask(conn):
@@ -74,13 +76,14 @@ def startServer(port):
     serverSocket.listen(1)  # Listen for incoming connections (1 connection at a time)
     print(f'The server is ready to receive on port {port}')
 
+    connectionSocket, addr = serverSocket.accept()  # Accept a connection from a client
+    print(f"Connection established with {addr}")  # Log the client's address
     # Main server loop: Accept and process client connections
     while True:
-        connectionSocket, addr = serverSocket.accept()  # Accept a connection from a client
-        print(f"Connection established with {addr}")  # Log the client's address
 
         # Receive the command from the client
         command = connectionSocket.recv(1024).decode()
+        print(command)
         connectionSocket.sendall(b"File received.")  # Acknowledge that the command was received
 
         # Check the command and call the appropriate task function
@@ -92,11 +95,10 @@ def startServer(port):
             keywordTask(connectionSocket)  # Handle file anonymization
         elif command == "quit":
             connectionSocket.sendall(b"Server response: Goodbye!")  # Send a goodbye message
-            connectionSocket.close()  # Close the connection
             break  # Exit the server loop
 
-        # Close the connection after handling the command
-        connectionSocket.close()
+    # Close the connection after handling the command
+    connectionSocket.close()
 
 # Main block to start the server with a specified port
 if __name__ == "__main__":
