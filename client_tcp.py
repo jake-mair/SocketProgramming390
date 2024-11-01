@@ -20,7 +20,12 @@ def sendFile(filename, clientSocket):
 # Function to receive a file from the server and save it
 def recFile(filename, clientSocket):
 
+    clientSocket.sendall(filename.encode())  # Send the filename to the server
+    clientSocket.recv(1024)  # Wait for the server to acknowledge
+
+    print("Before")
     file_size = int(clientSocket.recv(1024).decode())
+    print("After")
     clientSocket.sendall(b"File size received.")
 
     # Rename the file if it already exists by appending '_1'
@@ -38,7 +43,10 @@ def recFile(filename, clientSocket):
                 break
             file.write(data)  # Write the data to the new file
             bytes_received += len(data)
+            
+    # Inform the server that the file has been successfully downloaded
     clientSocket.sendall(b"Client response: File downloaded.")
+    return new_filename
 
 # Main client function to handle user commands and communicate with the server
 def startClient(name, port):
@@ -49,7 +57,6 @@ def startClient(name, port):
         command = input("Enter command: ").split()  # Get the user's command as a list
         # If the command is 'put', handle file upload
         if command[0] == "put":
-            print(command)
             filename = command[1]  # Get the filename from the command
             clientSocket.sendall(b"put")  # Send the 'put' command to the server
             clientSocket.recv(1024)  # Wait for the server to acknowledge
@@ -57,7 +64,6 @@ def startClient(name, port):
             clientSocket.sendall(filename.encode())  # Send the filename to the server
             clientSocket.recv(1024)  # Wait for the server to acknowledge
 
-            print("Sending file.")
             sendFile(filename, clientSocket)  # Call the sendFile function to upload the file
             print("Awaiting server response.")
             clientSocket.recv(1024)  # Wait for server's confirmation
@@ -69,11 +75,7 @@ def startClient(name, port):
             clientSocket.sendall(b"get")  # Send the 'get' command to the server
             clientSocket.recv(1024)  # Wait for the server to acknowledge
 
-            clientSocket.sendall(filename.encode())  # Send the filename to the server
-            clientSocket.recv(1024)  # Wait for the server to acknowledge
-
             recFile(filename, clientSocket)  # Call the recFile function to download the file
-            clientSocket.recv(1024)  # Wait for server's confirmation
             print(f"File {filename} downloaded.")
 
         # # If the command is 'keyword', handle file anonymization
