@@ -39,12 +39,8 @@ def getTask(conn):
     conn.sendall(b"Filename received.")  # Acknowledge filename receipt
 
     file_size = os.path.getsize(filename)
-    print(file_size)
-    conn.sendall(str(file_size).encode())
-    print("Before")
-    response = conn.recv(1024).decode() # Wait for the client to acknowledge file size
-    print(response)
-    print("After")
+    conn.sendall(f"{file_size}".encode())
+    conn.recv(1024) # Wait for the client to acknowledge file size
 
 
     # Open the requested file in read-binary mode and start sending the data to the client
@@ -106,6 +102,7 @@ def startServer(port):
             putTask(connectionSocket)  # Handle file upload
         elif command == "get":
             getTask(connectionSocket)  # Handle file download
+            connectionSocket.recv(1024)
         elif command == "keyword":
             keywordTask(connectionSocket)  # Handle file anonymization
         elif command == "quit":
