@@ -28,6 +28,8 @@ def putTask(conn):
             bytes_received += len(data)
     # Inform the client that the file has been successfully uploaded
     conn.sendall(b"Server response: File uploaded.")
+    
+    return new_filename
 
 
 # Function to handle the 'get' task, which sends a file from the server to the client
@@ -37,7 +39,13 @@ def getTask(conn):
     conn.sendall(b"Filename received.")  # Acknowledge filename receipt
 
     file_size = os.path.getsize(filename)
-    conn.sendall(f"{file_size}".encode())
+    print(file_size)
+    conn.sendall(str(file_size).encode())
+    print("Before")
+    response = conn.recv(1024).decode() # Wait for the client to acknowledge file size
+    print(response)
+    print("After")
+
 
     # Open the requested file in read-binary mode and start sending the data to the client
     with open(filename, 'rb') as file:
@@ -47,6 +55,7 @@ def getTask(conn):
                 break
             conn.sendall(data)  # Send the file data to the client
 
+
 # Function to handle the 'keyword' task, which anonymizes a file based on a given keyword
 def keywordTask(conn):
     conn.sendall(b"Keyword command received.")  # Acknowledge that the command was received
@@ -54,8 +63,7 @@ def keywordTask(conn):
     # Receive the keyword and filename from the client
     key_and_file = conn.recv(1024).decode().split()  # Split the keyword and filename
     keyword, filename = key_and_file[0], key_and_file[1]
-    print(f"{keyword}, {filename}")  # Log the keyword and filename for debugging
-
+    
     # Split the filename into name and extension to create a new anonymized filename
     parts = filename.rsplit('.', 1)
     name = parts[0]
@@ -90,15 +98,14 @@ def startServer(port):
 
         # Receive the command from the client
         command = connectionSocket.recv(1024).decode()
-        print(command)
-        connectionSocket.sendall(b"File received.")  # Acknowledge that the command was received
+        if command != "quit":
+            connectionSocket.sendall(b"File received.")  # Acknowledge that the command was received
 
         # Check the command and call the appropriate task function
         if command == "put":
             putTask(connectionSocket)  # Handle file upload
         elif command == "get":
             getTask(connectionSocket)  # Handle file download
-            connectionSocket.recv(1024)
         elif command == "keyword":
             keywordTask(connectionSocket)  # Handle file anonymization
         elif command == "quit":
