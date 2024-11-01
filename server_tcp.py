@@ -1,5 +1,6 @@
 from socket import *
 import sys
+import os
 
 # Function to handle the 'put' task, which uploads a file from the client to the server
 def putTask(conn):
@@ -7,21 +8,24 @@ def putTask(conn):
     filename = conn.recv(1024).decode()
     conn.sendall(b"Filename received.")  # Acknowledge filename receipt
 
+    file_size = int(conn.recv(1024).decode())
+    conn.sendall(b"File size received.")
+
     # Part to rename the file if it already exists by appending '_1' to the filename
     parts = filename.rsplit('.', 1)  # Split the filename to separate name and extension
     name = parts[0]
     ext = parts[1]
     new_filename = f"{name}_1.{ext}"  # Add '_1' to the filename to avoid overwriting
 
+    bytes_received = 0 
     # Open the new file in write-binary mode and start writing data received from the client
     with open(new_filename, 'wb') as file:
-        while True:
+        while bytes_received < file_size:
             data = conn.recv(1024)  # Receive data in chunks of 1024 bytes
-            print([data])
             if not data:  # If no more data is received, stop the loop
-                print("This hits")
                 break
             file.write(data)  # Write the received data to the new file
+            bytes_received += len(data)
     # Inform the client that the file has been successfully uploaded
     conn.sendall(b"Server response: File uploaded.")
 
@@ -31,6 +35,9 @@ def getTask(conn):
     # Receive the filename from the client
     filename = conn.recv(1024).decode()
     conn.sendall(b"Filename received.")  # Acknowledge filename receipt
+
+    file_size = os.path.getsize(filename)
+    conn.sendall(f"{file_size}".encode())
 
     # Open the requested file in read-binary mode and start sending the data to the client
     with open(filename, 'rb') as file:
@@ -91,6 +98,7 @@ def startServer(port):
             putTask(connectionSocket)  # Handle file upload
         elif command == "get":
             getTask(connectionSocket)  # Handle file download
+            connectionSocket.recv(1024)
         elif command == "keyword":
             keywordTask(connectionSocket)  # Handle file anonymization
         elif command == "quit":
