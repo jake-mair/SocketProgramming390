@@ -23,9 +23,7 @@ def recFile(filename, clientSocket):
     clientSocket.sendall(filename.encode())  # Send the filename to the server
     clientSocket.recv(1024)  # Wait for the server to acknowledge
 
-    print("Before")
     file_size = int(clientSocket.recv(1024).decode())
-    print("After")
     clientSocket.sendall(b"File size received.")
 
     # Rename the file if it already exists by appending '_1'
