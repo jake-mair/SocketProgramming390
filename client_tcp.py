@@ -1,6 +1,7 @@
 from socket import *
 import sys
 import os
+import time
 
 # Function to send a file from the client to the server
 def sendFile(filename, clientSocket):
@@ -21,10 +22,10 @@ def sendFile(filename, clientSocket):
 def recFile(filename, clientSocket):
 
     clientSocket.sendall(filename.encode())  # Send the filename to the server
-    clientSocket.recv(1024)  # Wait for the server to acknowledge
-
-    file_size = int(clientSocket.recv(1024).decode())
-    clientSocket.sendall(b"File size received.")
+    response = clientSocket.recv(1024).decode()  # Wait for the server to acknowledge
+    print(response)
+    file_size = int(response)
+    clientSocket.sendall(b"File size received")
 
     # Rename the file if it already exists by appending '_1'
     parts = filename.rsplit('.', 1)  # Split the filename and extension
