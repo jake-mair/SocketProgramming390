@@ -1,6 +1,7 @@
 from socket import *
 import sys
 import os
+import time
 
 # Function to handle the 'put' task, which uploads a file from the client to the server
 def putTask(conn):
@@ -36,11 +37,14 @@ def putTask(conn):
 def getTask(conn):
     # Receive the filename from the client
     filename = conn.recv(1024).decode()
-    conn.sendall(b"Filename received.")  # Acknowledge filename receipt
 
-    file_size = os.path.getsize(filename)
-    conn.sendall(f"{file_size}".encode())
-    conn.recv(1024) # Wait for the client to acknowledge file size
+
+    # file_size = os.path.getsize(filename)
+    if os.path.isfile(filename):
+        file_size = os.path.getsize(filename)
+        conn.sendall(f"{file_size}".encode())  # Send file size
+
+        ack = conn.recv(1024).decode()
 
 
     # Open the requested file in read-binary mode and start sending the data to the client
@@ -50,6 +54,8 @@ def getTask(conn):
             if not data:  # If the end of the file is reached, stop the loop
                 break
             conn.sendall(data)  # Send the file data to the client
+    
+    conn.recv(1024).decode()
 
 
 # Function to handle the 'keyword' task, which anonymizes a file based on a given keyword
@@ -102,7 +108,6 @@ def startServer(port):
             putTask(connectionSocket)  # Handle file upload
         elif command == "get":
             getTask(connectionSocket)  # Handle file download
-            connectionSocket.recv(1024)
         elif command == "keyword":
             keywordTask(connectionSocket)  # Handle file anonymization
         elif command == "quit":
