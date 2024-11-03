@@ -130,7 +130,7 @@ def startServer(port):
 
 # Main block to start the server with a specified port
 if __name__ == "__main__":
-    port = 20006  # Default port for the program
+    port = "20006"  # Default port for the program
 
     # If a port number is provided as a command-line argument, use that port
     if len(sys.argv) == 2:
