@@ -3,14 +3,14 @@ import sys
 import os
 import time
 
+
 # Function to send a file from the client to the server
 def sendFile(filename, clientSocket):
     file_size = os.path.getsize(filename)
     clientSocket.sendall(f"{file_size}".encode())
     clientSocket.recv(1024)
 
-
-    with open(filename, 'rb') as file:
+    with open(filename, "rb") as file:
         while True:
             data = file.read(1024)  # Read the file in 1024-byte chunks
             if not data:  # If no data left, break the loop
@@ -28,24 +28,25 @@ def recFile(filename, clientSocket):
     clientSocket.sendall(b"File size received")
 
     # Rename the file if it already exists by appending '_1'
-    parts = filename.rsplit('.', 1)  # Split the filename and extension
+    parts = filename.rsplit(".", 1)  # Split the filename and extension
     name = parts[0]
     ext = parts[1]
     new_filename = f"{name}_1.{ext}"  # Create a new filename to avoid overwriting
 
-    bytes_received = 0 
+    bytes_received = 0
     # Open the new file for writing binary data
-    with open(new_filename, 'wb') as file:
+    with open(new_filename, "wb") as file:
         while bytes_received < file_size:
             data = clientSocket.recv(1024)  # Receive data in 1024-byte chunks
             if not data:  # If no more data, break the loop
                 break
             file.write(data)  # Write the data to the new file
             bytes_received += len(data)
-            
+
     # Inform the server that the file has been successfully downloaded
     clientSocket.sendall(b"Client response: File downloaded.")
     return new_filename
+
 
 # Main client function to handle user commands and communicate with the server
 def startClient(name, port):
@@ -63,7 +64,9 @@ def startClient(name, port):
             clientSocket.sendall(filename.encode())  # Send the filename to the server
             clientSocket.recv(1024)  # Wait for the server to acknowledge
 
-            sendFile(filename, clientSocket)  # Call the sendFile function to upload the file
+            sendFile(
+                filename, clientSocket
+            )  # Call the sendFile function to upload the file
             print("Awaiting server response.")
             clientSocket.recv(1024)  # Wait for server's confirmation
             print("Server response: File uploaded.")
@@ -74,7 +77,9 @@ def startClient(name, port):
             clientSocket.sendall(b"get")  # Send the 'get' command to the server
             clientSocket.recv(1024)  # Wait for the server to acknowledge
 
-            recFile(filename, clientSocket)  # Call the recFile function to download the file
+            recFile(
+                filename, clientSocket
+            )  # Call the recFile function to download the file
             print(f"File {filename} downloaded.")
 
         # # If the command is 'keyword', handle file anonymization
@@ -85,7 +90,9 @@ def startClient(name, port):
             clientSocket.sendall(b"keyword")  # Send the 'keyword' command to the server
             clientSocket.recv(1024)  # Wait for the server to acknowledge
 
-            clientSocket.sendall(f"{keyword} {filename}".encode())  # Send the keyword and filename
+            clientSocket.sendall(
+                f"{keyword} {filename}".encode()
+            )  # Send the keyword and filename
             response = clientSocket.recv(1024)  # Receive the server's response
             print(response.decode())  # Print the server's response
 
@@ -97,13 +104,14 @@ def startClient(name, port):
 
     clientSocket.close()  # Close the socket after quitting
 
+
 # Entry point for the client program
 if __name__ == "__main__":
-    serverName = 'localhost'  # Default IP address (localhost)
-    serverPort = 12000  # Default port number
+    serverName = "150.209.91.34"  # Default IP address (localhost)
+    serverPort = 20006  # Default port number
 
     if len(sys.argv) == 3:
         serverName = str(sys.argv[1])
         serverPort = int(sys.argv[2])
 
-    startClient(serverName, serverPort) 
+    startClient(serverName, serverPort)
