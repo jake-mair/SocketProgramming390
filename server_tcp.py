@@ -90,6 +90,9 @@ def keywordTask(conn):
     conn.sendall(
         f"Server response: File {filename} anonymized. Output file is {anonymized_filename}".encode()
     )
+    print(
+        f"Server response: File {filename} anonymized. Output file is {anonymized_filename}"
+    )
 
 
 # Function to start the server and listen for incoming client connections and commands
