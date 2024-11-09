@@ -1,11 +1,40 @@
 from socket import *
 import multiprocessing
+from multiprocessing import Queue
+import multiprocessing.queues as mpq
 
-if __name__ == '__main__':
+# Timeout source: https://flipdazed.github.io/blog/quant%20dev/parallel-functions-with-timeouts
+# Sends an ACK and waits for data
+def ack_and_wait_for_data(q: Queue, server_socket):
+    message, client_address = server_socket.recvfrom(1048)
+    print("recieved " + str(len(message)) + " bytes")
+    server_socket.sendto("ACK".encode(), client_address)
+    print('Sent the ACK')
+    #sleep(message)
+    q.put(message)
+    #message = recieved_message
+
+# recieves data
+def recieve_data(server_socket):
+    q_worker = Queue()
+    #conn1, conn2 = Pipe()
+    #message = multiprocessing.Value('i', "".encode())
+    #data.value
+    p = multiprocessing.Process(target=ack_and_wait_for_data, args=(q_worker, server_socket, ))
+    p.start()
+    try:
+        res = q_worker.get(timeout=1)
+        return res
+    except mpq.Empty:
+        p.terminate()
+        print('Timeout!')
+        return "terminate"
+
+
+def recieve_file():
     SERVER_PORT = 12000
     server_socket = socket(AF_INET, SOCK_DGRAM)
     server_socket.bind(("", SERVER_PORT))
-
     print("the server is ready to receive")
 
     message, client_address = server_socket.recvfrom(1048)
@@ -14,93 +43,32 @@ if __name__ == '__main__':
     print(message.decode().upper())
     file_size = int(message.decode().upper()[4:])
     server_socket.sendto("ACK".encode(), client_address)
+    print('Sent the ACK')
 
-   # Open the new file for writing binary data
+    # Open the new file for writing binary data
     with open("recieved_data", 'wb') as file:
         bytes_received = 0 
-        server_socket.sendto("ACK".encode(), client_address)
-        print('Sent the ACK')
-        message, client_address = server_socket.recvfrom(1048)
-        print("recieved " + str(len(message)) + " bytes")
-        file.write(message)
-        bytes_received += len(message)
-
-        while bytes_received < file_size:
-            server_socket.sendto("ACK".encode(), client_address)
-            print('Sent the ACK')
-            message, client_address = server_socket.recvfrom(1048)
-            print("recieved " + str(len(message)) + " bytes")
+        message = recieve_data(server_socket)
+        #message = recieve_data(server_socket, client_address)
+       # message, client_address = server_socket.recvfrom(1048)
+        if (message == "terminate"):
+            print("Did not receive data. Terminating.")
+            return 
+        else:
             file.write(message)
             bytes_received += len(message)
+            # server_socket.sendto("ACK".encode(), client_address)
+            # print('Sent the ACK')
 
-    print("All bytes recieved")
-    server_socket.sendto("FIN".encode(), client_address)
-    #recieve_file()
-
-    # while True:
-    #     message, client_address = server_socket.recvfrom(1048)
-    #     modified_message = message.decode().upper()
-    #     print(f"{message} -> {modified_message}")
-    #     server_socket.sendto("ACK".encode(), client_address)
-
-
-
-
-    # ret = {"message": ""}
-
-# # Sends an ACK and waits for data
-# def ack_and_wait_for_data(queue):
-#     server_socket.sendto("ACK".encode(), client_address)
-#     print('Sent the ACK')
-#     message, client_address = server_socket.recvfrom(1048)
-#     print("recieved " + str(len(message)) + " bytes")
-#     ret = queue.get()
-#     ret['message'] = message
-#     queue.put(ret)
-
-# # recieves data
-# def recieve_data():
-#     queue = multiprocessing.Queue()
-#     queue.put(ret)
-#     p = multiprocessing.Process(target=ack_and_wait_for_data, args=(queue, ))
-#     p.start()
-#     p.join(1)
-#     if p.is_alive():
-#         p.terminate()
-#         p.join()
-#         return "terminate"
-#     print(queue.get)
-#     #return return_dict.values
+        while bytes_received < file_size:
+            message = recieve_data(server_socket)
+            if (message == "terminate"):
+                print("Data transmission terminated prematurely.")
+                return 
+            else:
+                file.write(message)
+                bytes_received += len(message)
 
 
-# def recieve_file():
-#     print("the server is ready to receive")
-
-#     message, client_address = server_socket.recvfrom(1048)
-#     print(message.decode().upper())
-#     message, client_address = server_socket.recvfrom(1048)
-#     print(message.decode().upper())
-#     file_size = int(message.decode().upper()[4:])
-#     server_socket.sendto("ACK".encode(), client_address)
-
-#     # Open the new file for writing binary data
-#     with open("recieved_data", 'wb') as file:
-#         bytes_received = 0 
-#         recieve_data()
-        #message = recieve_data()
-        # if (message == "terminate"):
-        #     print("Did not receive data. Terminating.")
-        #     return 
-        #else:
-            #file.write(message)
-            #bytes_received += len(message)
-
-        # while bytes_received < file_size:
-        #     recieve_data()
-            #message = recieve_data()
-            # if (message == "terminate"):
-            #     print("Data transmission terminated prematurely.")
-            #     return 
-            # else:
-            #     file.write(message)
-            #     bytes_received += len(message)
+if __name__ == '__main__':
+    recieve_file()

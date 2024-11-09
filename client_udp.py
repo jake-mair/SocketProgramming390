@@ -32,7 +32,8 @@ def send_file(filename):
 
     # Sends a message with the length of the data in the format LEN:Bytes
     file_size = os.path.getsize(filename)
-    clientSocket.sendto(("LEN:" + str(file_size)).encode(), (serverName, serverPort))
+    #clientSocket.sendto(("LEN:" + str(file_size)).encode(), (serverName, serverPort))
+    send_message(("LEN:" + str(file_size)).encode())
 
     with open(filename, 'rb') as file:
         while True:
