@@ -1,10 +1,10 @@
 # 150.209.91.34
 # get File4_anon.txt
 files = [
-    "tcp1.txt",
-    "tcp2.txt",
-    "tcp3.txt",
-    "tcp4.txt",
+    "udp1.txt",
+    "udp2.txt",
+    "udp3.txt",
+    "udp4.txt",
 ]
 
 
