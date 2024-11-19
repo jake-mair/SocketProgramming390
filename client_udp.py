@@ -1,173 +1,191 @@
 from socket import *
-from multiprocessing import Process
 import os
-import multiprocessing
-from multiprocessing import Queue
 import multiprocessing.queues as mpq
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 import sys
 
 
 #### CODE FOR RECEIVING FILE
 
 # Timeout source: https://flipdazed.github.io/blog/quant%20dev/parallel-functions-with-timeouts
-# Sends an ACK and waits for data
+# Function that receives data and sends an ACK
 def ack_and_wait_for_data(q: Queue, client_socket):
     message, server_address = client_socket.recvfrom(1048)
-    #print("received " + str(len(message)) + " bytes")
     client_socket.sendto("ACK".encode(), server_address)
-    #print('Sent the ACK')
-    #sleep(message)
     q.put(message)
-    #message = received_message
 
-# receives data
+# Function that receives data by calling ack_and_wait_for_data() with a one second timeout.
+#   Calls ack_and_wait_for_data which receives data and sends an ACK.
+#   If ack_and_wait_for_data returns data, this function returns the data as well, 
+#   otherwise if the ack_and_wait_for_data times out, it returns "terminate".
 def receive_data(client_socket):
     q_worker = Queue()
-    #conn1, conn2 = Pipe()
-    #message = multiprocessing.Value('i', "".encode())
-    #data.value
-    p = multiprocessing.Process(target=ack_and_wait_for_data, args=(q_worker, client_socket, ))
+    p = Process(target=ack_and_wait_for_data, args=(q_worker, client_socket, ))
     p.start()
+
     try:
-        res = q_worker.get(timeout=1)
+        res = q_worker.get(timeout = 1)
         return res
     except mpq.Empty:
         p.terminate()
-        #print('Timeout!')
         return "terminate"
 
-
-def receive_file(file_name, client_socket):
-    # Part to rename the file if it already exists by appending '_1' to the filename
-    parts = file_name.rsplit('.', 1)  # Split the filename to separate name and extension
+# Function to receive a file using stop and wait protocol.
+def receive_file(file_name, client_socket, server_address):
+    # Rename the file if it already exists by appending '_1' to the file_name
+    parts = file_name.rsplit('.', 1)  # Split the file_name to separate name and extension
     name = parts[0]
     ext = parts[1]
-    new_filename = f"{name}_1.{ext}"  # Add '_1' to the filename to avoid overwriting
-    # SERVER_PORT = 12000
-    # server_socket = socket(AF_INET, SOCK_DGRAM)
-    # server_socket.bind(("", SERVER_PORT))
-    # print("the server is ready to receive")
+    new_file_name = f"{name}_1.{ext}"  # Add '_1' to the file_name to avoid overwriting
 
-    message, server_address = client_socket.recvfrom(1048)
-    #print(message.decode().upper())
-    message, server_address = client_socket.recvfrom(1048)
-    #print(message.decode().upper())
-    file_size = int(message.decode().upper()[4:])
-    client_socket.sendto("ACK".encode(), server_address)
-    #print('Sent the ACK')
+    # Receive and acknowledge a message containing the file size of of the file to be 
+    #   received in the format "LEN:Bytes". If no message is received, prints 
+    #   "Did not receive file size. Terminating", and terminates.
+    message = receive_data(client_socket)
+    if (message == "terminate"):
+        print("Did not receive file size. Terminating")
+        return "terminate"
+    else:
+        file_size = int(message.decode().upper()[4:])
 
-    # Open the new file for writing binary data
-    with open(new_filename, 'wb') as file:
+    # Opens the new file for writing binary data
+    with open(new_file_name, 'wb') as file:
+
+        # receives the first chunk of data. If no data is received, 
+        #   prints "Did not receive data. Terminating." and terminates.
         bytes_received = 0 
         message = receive_data(client_socket)
-        #message = receive_data(server_socket, client_address)
-       # message, client_address = server_socket.recvfrom(1048)
         if (message == "terminate"):
             print("Did not receive data. Terminating.")
-            return 
+            return "terminate"
         else:
             file.write(message)
             bytes_received += len(message)
-            # server_socket.sendto("ACK".encode(), client_address)
-            # print('Sent the ACK')
 
+        # Receives the remaining data in chunks until it has received 
+        #   as many bytes as the file_size. If no data is received, 
+        #   prints "Data transmission terminated prematurely." and terminates.
         while bytes_received < file_size:
             message = receive_data(client_socket)
             if (message == "terminate"):
                 print("Data transmission terminated prematurely.")
-                return 
+                return "terminate"
             else:
                 file.write(message)
                 bytes_received += len(message)
-        client_socket.sendto("FIN".encode(), server_address)
-        #print("FIN")
-    return new_filename
+        
+        # Sends "FIN" to the server to tell the server that the process is complete.
+        send_message("FIN".encode(), server_address, client_socket)
+    return new_file_name
 
 
 #### CODE FOR SENDING FILE
-# source for timeout function: https://alexandra-zaharia.github.io/posts/function-timeout-in-python-multiprocessing/
-# Waits for an ack
-def wait_for_ack(message, serverName, serverPort, clientSocket):
-    clientSocket.sendto(message, (serverName, serverPort))
-    #print('Sent the message')
-    ack, server_address = clientSocket.recvfrom(1048)
-    #if (ack.decode().upper() == "ACK"):
-        #print("ACK")
+# Source for timeout function: https://alexandra-zaharia.github.io/posts/function-timeout-in-python-multiprocessing/
+# Sends a message and waits for a message containing the string "ACK"
+def send_message_and_wait_for_ack(message, server_address, client_socket):
 
-# Sends a message
-def send_message(message, serverName, serverPort, clientSocket):
-    p = Process(target=wait_for_ack, args=(message, serverName, serverPort, clientSocket,))
+    # Sends the message to the server
+    client_socket.sendto(message, server_address)
+
+    # Waits for a message containing the string "ACK"
+    while True: 
+        ack, server_address = client_socket.recvfrom(1048)
+        if ("ACK" in ack.decode().upper()):
+            break
+
+# Sends a message to a server and waits for an ack with a one second timeout.
+#   Calls the function send_message_and_wait_for_ack and if it receives an ACK 
+#   before the timeout, returns "success", otherwise returns "terminate".
+def send_message(message, server_address, client_socket):
+    p = Process(target=send_message_and_wait_for_ack, args=(message, server_address, client_socket,))
     p.start()
     p.join(1)
+
     if p.is_alive():
         p.terminate()
         p.join()
         return "terminate"
     return "success"
 
-def send_file(filename, serverName, serverPort, clientSocket):
-    # Sends a message with the length of the data in the format LEN:Bytes
-    file_size = os.path.getsize(filename)
-    #clientSocket.sendto(("LEN:" + str(file_size)).encode(), (serverName, serverPort))
-    send_message(("LEN:" + str(file_size)).encode(), serverName, serverPort, clientSocket)
+# Sends a file to the server using stop and wait protocol.
+def send_file(file_name, server_address, client_socket):
 
-    with open(filename, 'rb') as file:
+    # Sends a message with the length of the data in the format LEN:Bytes, 
+    #   if it doesn't receive an ACK, terminates
+    file_size = os.path.getsize(file_name)
+    if (send_message(("LEN:" + str(file_size)).encode(), server_address, client_socket) == "terminate"):
+        print("Did not acknowledge file size. Terminating")
+        return "terminate"
+
+    # Opens the file and sends it in 1000-byte chunks. 
+    #   If it doesn't receive an ACK after sending a chunk, terminates.
+    with open(file_name, 'rb') as file:
         while True:
             data = file.read(1000)  # Read the file in 1000-byte chunks
             if not data:  # If no data left, break the loop
                 break
-            if (send_message(data, serverName, serverPort, clientSocket) == "terminate"): # Send the file data to the server in a small chunk
+            if (send_message(data, server_address, client_socket) == "terminate"): # Send the file data to the server in a small chunk
                 print("Did not receive ACK. Terminating.")
-                return
+                return "terminate"
 
 
 # Main client function to handle user commands and communicate with the server
-def startClient(serverName, serverPort):
-    clientSocket = socket(AF_INET, SOCK_DGRAM) 
-    #clientSocket = socket(AF_INET, SOCK_STREAM)  # Create a TCP socket
-    #clientSocket.connect((serverName, serverPort))  # Connect to the server
+def startClient(server_address):
+
+    client_socket = socket(AF_INET, SOCK_DGRAM) # Creates the client socket
 
     while True:
         command = input("Enter command: ")  # Get the user's command as a list
-        # Tell the server what the command was
-        send_message(command.encode(), serverName, serverPort, clientSocket)
 
-        # If the command is 'put', handle file upload
-        if command.split()[0] == "put":
-            print("Awaiting server response.")
-            filename = command.split()[1]  # Get the filename from the command
-            send_file(filename, serverName, serverPort, clientSocket)
-            fin, server_address = clientSocket.recvfrom(1048)
-            server_response, server_address = clientSocket.recvfrom(1048)
-            if (fin.decode().upper() == "FIN"):
-                print(f"Server response: {server_response.decode()}")
-        # If the command is 'get', handle file download
-        elif command.split()[0] == "get":
-            print("Awaiting server response.")
-            new_filename = receive_file(command.split()[1], clientSocket)  # Call the recFile function to download the file
-            clientSocket.sendto(f"File {command.split()[1]} downloaded. Output file is {new_filename}".encode(), (serverName, serverPort))
-            print(f"File {command.split()[1]} downloaded. Output file is {new_filename}")
-        # If the command is 'keyword', handle file anonymization
-        elif command.split()[0] == "keyword":
-            print("Awaiting server response.")
-            server_response, server_address = clientSocket.recvfrom(1048)
-            print(f"Server response: {server_response.decode()}")
         # If the command is 'quit', handle client exit
-        elif command.split()[0] == "quit":
+        if command.split()[0] == "quit":
+            send_message(command.encode(), server_address, client_socket)
             print("Exiting program!")
             break  # Exit the loop and close the client
 
-    clientSocket.close()  # Close the socket after quitting
+        # Tell the server what the command was
+        if (send_message(command.encode(), server_address, client_socket) == "terminate"):
+            print("Did not receive ACK. Terminating.")
+        else:
+            print("Awaiting server response.")
+
+            # If the command is 'put', handle file upload
+            if command.split()[0] == "put":
+                file_name = command.split()[1]  # Get the file_name from the command
+                if (send_file(file_name, server_address, client_socket) != "terminate"): # Send the file to the server
+
+                    # Receive a message containing "FIN" to signal that the process is complete
+                    #   Then receive and print the server response.
+                    fin = receive_data(client_socket)
+                    response = receive_data(client_socket)
+                    if (fin, response != "terminate"):
+                        if ("FIN" in fin.decode().upper()):
+                            print(f"Server response: {response.decode()}")
+                        else:
+                            print("Did not receive FIN message. Terminating.")
+                    else:
+                        print("Did not receive server response. Terminating.")
+
+            # If the command is 'get', handle file download
+            elif command.split()[0] == "get":
+                # Call the receive_file function to download the file and get the new file name
+                new_file_name = receive_file(command.split()[1], client_socket, (server_address))
+
+                # Tell the server that the file is downloaded and what the new file name is.
+                if (new_file_name != "terminate"):
+                    send_message(f"File {command.split()[1]} downloaded. Output file is {new_file_name}".encode(), server_address, client_socket)
+                    print(f"File {command.split()[1]} downloaded. Output file is {new_file_name}")
+
+            # If the command is 'keyword', handle file anonymization
+            elif command.split()[0] == "keyword":
+                # Receives and prints the response from the server containing the new file name
+                print(f"Server response: {receive_data(client_socket).decode()}")
+
+    client_socket.close()  # Close the socket after quitting
 
 
 if __name__ == '__main__':
     # Source for how to pass arguments to a file: https://www.pythonforbeginners.com/system/python-sys-argv
-    serverName=str(sys.argv[1])
-    serverPort=int(sys.argv[2])
-    startClient(serverName, serverPort)
-
-    # Opens a test file
-    #send_file('File1.txt')
-    
-    #clientSocket.close()
+    server_name=str(sys.argv[1])
+    server_port=int(sys.argv[2])
+    startClient((server_name, server_port))
